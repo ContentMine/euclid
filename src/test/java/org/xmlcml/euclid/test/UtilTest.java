@@ -836,7 +836,5 @@ public class UtilTest {
 		char c = 0x0020;
 		String space = Util.createUnicodeString(c);
 		Assert.assertEquals("space",  "\\u0020", space);
-		String ss = String.valueOf(space);
-		Assert.assertEquals("space",  " ", space);
 	}
 }
