@@ -49,6 +49,9 @@ public class Angle {
         /** */
         RADIANS;
     }
+	private static final String DEG = "deg";
+	private static final String RAD = "rad";
+
     /** range */
     public enum Range {
         /**
@@ -64,6 +67,7 @@ public class Angle {
          */
         SIGNED;
     }
+    public final static Angle ZERO = new Angle(0.0);
     /**
      * default is UNLIMITED
      */
@@ -78,9 +82,11 @@ public class Angle {
      * ALWAYS held as radians internally
      */
     double angle = 0.0;
+    
     /**
      * create default Angle default is (0.0)
      */
+    
     public Angle() {
     }
     /**
@@ -422,4 +428,32 @@ public class Angle {
         }
         return s.toString();
     }
+    
+    /** create from value and units
+     * 
+     * @param valueS
+     * @param unitsS "deg" or "rad"
+     * @return
+     */
+	public static Angle createAngle(String valueS, String unitsS) {
+		Angle angle = null;
+		Double value = null;
+		Angle.Units units = null;
+		try {
+			value = new Double(valueS);
+		} catch (NumberFormatException nfe) {
+			// return null
+		}
+		unitsS = unitsS == null ? null : unitsS.toLowerCase();
+		if (unitsS.startsWith(DEG)) {
+			units = Angle.Units.DEGREES;
+		}
+		if (unitsS.startsWith(RAD)) {
+			units = Angle.Units.RADIANS;
+		}
+		if (units != null && value != null) {
+			angle = new Angle(value, units);
+		}
+		return angle;
+	}
 }

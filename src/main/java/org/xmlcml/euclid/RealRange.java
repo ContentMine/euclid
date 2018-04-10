@@ -217,7 +217,7 @@ public class RealRange implements EuclidConstants, Comparable<RealRange>  {
     	return this;
     }
     
-    public boolean intersectsWith(RealRange r2) {
+    public boolean intersects(RealRange r2) {
     	RealRange r = this.intersectionWith(r2);
     	return r != null && r.isValid();
     }
@@ -238,6 +238,26 @@ public class RealRange implements EuclidConstants, Comparable<RealRange>  {
 	        }
         }
         return inter;
+    }
+    
+    /**
+     * do two ranges (nearly) intersect?
+     * if ranges intersect or are within 2*delta will return true
+     * (The actual RealRange intersection will be null if they don't actually touch/overlap)
+     * 
+     * @param r2
+     * @param delta tolerance
+     * @return range
+     */
+    public boolean intersects(RealRange r2, double delta) {
+        if (isValid() && r2 != null && r2.isValid()) {
+	        double minv = Math.max(minval - delta, r2.minval -delta);
+	        double maxv = Math.min(maxval + delta, r2.maxval + delta);
+	        if (minv <= maxv) {
+	        	return true;
+	        }
+        }
+        return false;
     }
     /**
      * get minimum value (POSITIVE_INFINITY if inValid)

@@ -15,6 +15,7 @@
  */
 
 package org.xmlcml.euclid;
+import java.awt.geom.Point2D;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -136,7 +137,10 @@ public class Real2 implements EuclidConstants {
         this.y = r.y;
     }
     
-    /**
+    public static Real2 createReal2(Point2D p) {
+    	return p == null ? null : new Real2(p.getX(), p.getY());
+	}
+	/**
      * swaps the x and y values
      */
     public void swap() {
@@ -259,7 +263,7 @@ public class Real2 implements EuclidConstants {
         this.y = -this.y;
     }
     /**
-     * retuen multiplication of a point by a scalar
+     * return multiplication of a point by a scalar
      * does not alter this
      * @param f
      * @return point
@@ -380,7 +384,8 @@ public class Real2 implements EuclidConstants {
      */
     public static Angle getAngle(Real2 p1, Real2 p2, Real2 p3) {
     	if (p1 == null || p2 == null || p3 == null) {
-    		throw new RuntimeException("null coordinates");
+//    		throw new RuntimeException("null coordinates");
+    		return null;
     	}
         double x1 = p1.x - p2.x;
         double y1 = p1.y - p2.y;
@@ -406,12 +411,14 @@ public class Real2 implements EuclidConstants {
      * 
      */
     public void transformBy(Transform2 t) {
-        double xx = t.flmat[0][0] * this.x + t.flmat[0][1] * this.y
-                + t.flmat[0][2];
-        double yy = t.flmat[1][0] * this.x + t.flmat[1][1] * this.y
-                + t.flmat[1][2];
-        this.x = xx;
-        this.y = yy;
+    	if (t != null) {
+	        double xx = t.flmat[0][0] * this.x + t.flmat[0][1] * this.y
+	                + t.flmat[0][2];
+	        double yy = t.flmat[1][0] * this.x + t.flmat[1][1] * this.y
+	                + t.flmat[1][2];
+	        this.x = xx;
+	        this.y = yy;
+    	}
     }
     /**
      * gets a point transformed by a rot-trans matrix does NOT MODIFY 'this'
@@ -481,15 +488,12 @@ public class Real2 implements EuclidConstants {
             double dista = newPoints[1].subtract(repelPoint).getLength();
             double distb = newPoints[nPoints - 2].subtract(repelPoint)
                     .getLength();
-            // LOG.debug(""+dista+S_SLASH+distb+"/"+repelPoint+"/"+newPoints[1]+"/"+newPoints[nPoints-2]);
             if (dista > distb) {
-                // logger.info("SWAP");
                 center = center0;
                 dTheta = -dTheta;
                 theta = theta0;
                 newPoints = makePoints(center, nPoints, rad, theta, dTheta);
             } else {
-                // LOG.debug("NOSWAP");
             }
         }
         return newPoints;

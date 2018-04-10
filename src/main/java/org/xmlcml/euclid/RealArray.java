@@ -21,6 +21,9 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.Multiset;
+
 /**
  * array of doubles
  * 
@@ -765,6 +768,34 @@ public class RealArray extends ArrayBase implements Iterable<Double> {
             array[i] -= f.array[i];
         }
     }
+    
+    /**
+     * elementwise array division. does not modify THIS
+     * 
+     *   dividedArray[i] = this[i] / ra[i]
+     *      if divide by zero, new element is Infinity
+
+     * 
+     *  {4,6,8,12} / {2, 0, 2, 4} gives {2, NaN,4,3}
+     *  
+     * @param ra array to divide by
+     * @exception EuclidRuntimeException ra is different size from <TT>this</TT>
+     * 
+     */
+    public RealArray divideBy(RealArray ra) throws EuclidRuntimeException {
+        checkConformable(ra);
+        RealArray dividedArray = new RealArray(this.size());
+        for (int i = nelem - 1; i >= 0; --i) {
+        	try {
+        		dividedArray.array[i] = this.array[i] / ra.array[i];
+        	} catch (ArithmeticException ae) {
+        		dividedArray.array[i] = Double.NaN;
+        	}
+        }
+        return dividedArray;
+    }
+    
+    
     /**
      * change the sign of all elements. MODIFIES this
      */
@@ -2120,7 +2151,6 @@ public class RealArray extends ArrayBase implements Iterable<Double> {
 			delta--;
 		}
 		double scale = Math.abs(delta);
-		LOG.debug("this: "+this+" "+offset+" "+Util.format(delta, 2));
 		array0.shiftArrayRight(offset);
 		array1.shiftArrayRight(offset);
 		array0 = array0.multiplyBy(scale);
@@ -2130,15 +2160,7 @@ public class RealArray extends ArrayBase implements Iterable<Double> {
 		} else if (delta < 0) {
 			array1.shiftArrayRight(1);
 		}
-		LOG.debug("array0: "+array0.format(2));
-		LOG.debug("array1: "+array1.format(2));
 		RealArray newArray = array0.plus(array1);
-//		if (delta <= 0) {
-//			newArray.shiftArrayRight(offset);
-//		} else {
-//			newArray.shiftArrayRight(offset);
-//		}
-		LOG.debug("newArray: "+newArray.format(2)+"\n");
 		
 		return newArray;
 	}
@@ -2169,6 +2191,94 @@ public class RealArray extends ArrayBase implements Iterable<Double> {
 	public double getLast() {
 		return nelem == 0 ? Double.NaN : this.get(nelem - 1);
 	}
+	
+	/**
+	 *  create a set of double differences between neighbouring elements.
+	 *  Probably most useful when array is already sorted.
+	 *  
+	 *  Example:
+	 *  realArray = (1.2 2.3 3.4 4.6 5.7)
+	 *  set will be
+	 *  [1.1 x 3, 1.2]
+	 *  
+	 * @return
+	 */
+	public Multiset<Double> createDoubleDifferenceMultiset(int nplaces) {
+		Multiset<Double> deltaSet = HashMultiset.create();
+		RealArray deltaArray = calculateDifferences();
+		deltaArray.format(nplaces);
+		for (int i = 0; i < deltaArray.size(); i++) {
+			deltaSet.add(new Double(deltaArray.elementAt(i)));
+		}
+		return deltaSet;
+	}
+
+	/** create a set of all values as formatted Doubles.
+	 * 
+	 * @param nplaces number of places to format
+	 * @return the Multiset of values
+	 */
+	
+	public Multiset<Double> createDoubleMultiset(int nplaces) {
+		Multiset<Double> set = HashMultiset.create();
+		RealArray array = new RealArray(this);
+		array.format(nplaces);
+		for (int i = 0; i < array.size(); i++) {
+			set.add(new Double(array.elementAt(i)));
+		}
+		return set;
+	}
+
+	
+	/**
+	 *  create a set of integer differences between neighbouring elements.
+	 *  Probably most useful when array is already sorted.
+	 *  
+	 *  Example:
+	 *  realArray = (1.2 2.3 3.4 4.6 5.7)
+	 *  set will be
+	 *  [1 x 4]
+	 *  
+	 * @return
+	 */
+	public Multiset<Integer> createIntegerDifferenceMultiset() {
+		Multiset<Integer> deltaSet = HashMultiset.create();
+		if (this != null) {
+			IntArray deltaArray = calculateDifferences().createIntArray();
+			for (int i = 0; i < deltaArray.size(); i++) {
+				deltaSet.add(new Integer((int)deltaArray.elementAt(i)));
+			}
+		}
+		return deltaSet;
+	}
+	/** does the array contain one or more Doubel.NaN.
+	 * 
+	 * @return
+	 */
+	public boolean hasNaN() {
+		for (int i = 0; i < nelem; i++) {
+			if (Double.isNaN(array[i])) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** caluclate new array with absolute values of elements.
+	 * 
+	 * @return absolute values
+	 */
+	public RealArray getAbsoluteValues() {
+		RealArray absArray = new RealArray(this);
+		for (int i = 0; i < nelem; i++) {
+			if (absArray.array[i] < 0) {
+				absArray.array[i] = - absArray.array[i];
+			}
+		}
+		return absArray;
+	}
+	
+	
 }
 class DoubleIterator implements Iterator<Double> {
 

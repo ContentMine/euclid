@@ -16,9 +16,13 @@
 
 package org.xmlcml.euclid;
 import java.awt.Dimension;
+import java.util.Arrays;
 import java.util.List;
 
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.xmlcml.euclid.Axis.Axis2;
+import org.xmlcml.euclid.Real2Range.BoxDirection;
 import org.xmlcml.euclid.RealRange.Direction;
 /**
  * 2-D double limits Contains two RealRanges. Can therefore be used to describe
@@ -31,12 +35,37 @@ import org.xmlcml.euclid.RealRange.Direction;
  * @author (C) P. Murray-Rust, 1996
  */
 public class Real2Range implements EuclidConstants {
-	
+	private static final Logger LOG = Logger.getLogger(Real2Range.class);
+	static {
+		LOG.setLevel(Level.DEBUG);
+	}
+
 	public enum BoxDirection {
 		LEFT,
 		RIGHT,
 		TOP,
-		BOTTOM
+		BOTTOM;
+		private BoxDirection() {
+		}
+		public BoxDirection getOppositeDirection() {
+			if (LEFT.equals(this)) return RIGHT;
+			if (RIGHT.equals(this)) return LEFT;
+			if (TOP.equals(this)) return BOTTOM;
+			if (BOTTOM.equals(this)) return TOP;
+			return null;
+		}
+		
+		/** LEFT before RIGHT, Bottom before TOP
+		 * 
+		 * @return
+		 */
+		public List<BoxDirection> getPerpendicularDirections() {
+			if (LEFT.equals(this)) return Arrays.asList(new BoxDirection[]{BOTTOM, TOP});
+			if (RIGHT.equals(this)) return Arrays.asList(new BoxDirection[]{BOTTOM, TOP});
+			if (BOTTOM.equals(this)) return Arrays.asList(new BoxDirection[]{LEFT, RIGHT});
+			if (TOP.equals(this)) return Arrays.asList(new BoxDirection[]{LEFT,RIGHT});
+			return null;
+		}
 	}
 	
 	/**
@@ -66,6 +95,8 @@ public class Real2Range implements EuclidConstants {
         }
     }
     /** create from min corner of box and max corner
+     * 
+     * Hmm - always makes min < max.
      * 
      * @param r2a
      * @param r2b
@@ -206,6 +237,44 @@ public class Real2Range implements EuclidConstants {
     }
     
     /**
+     * do two ranges intersect or nearly intersect?
+     * if the bounding boxes are within 2*delta return true;
+     * 
+     * @param r2
+     * @p
+     * @return range
+     * 
+     */
+    
+    public boolean intersects(Real2Range r2) {
+        if (!isValid() || r2 == null || !r2.isValid()) {
+        	return false;
+        }
+        return this.getXRange().intersects(r2.getXRange()) &&
+        	this.getYRange().intersects(r2.getYRange());
+    }
+    
+
+
+    /**
+     * do two ranges intersect or nearly intersect?
+     * if the bounding boxes are within 2*delta return true;
+     * 
+     * @param r2
+     * @p
+     * @return range
+     * 
+     */
+    public boolean intersects(Real2Range r2, double delta) {
+        if (!isValid() || r2 == null || !r2.isValid()) {
+        	return false;
+        }
+        return this.getXRange().intersects(r2.getXRange(), delta) &&
+        	this.getYRange().intersects(r2.getYRange(), delta);
+    }
+    
+
+    /**
      * get xrange
      * 
      * @return range
@@ -242,7 +311,7 @@ public class Real2Range implements EuclidConstants {
     /** gets lower left and upper right.
      * @return minx,miny ... maxx, maxy
      */
-    public Real2[] getCorners() {
+    public Real2[] getLLURCorners() {
     	Real2[] rr = null;
     	if (xrange != null && yrange != null) {
     		rr = new Real2[2];
@@ -504,4 +573,191 @@ public class Real2Range implements EuclidConstants {
 			xrange.isLessThan(bbox.getXRange()) &&
 			yrange.isLessThan(bbox.getYRange()); 
 	}
+	
+	/** extend the end of range upper end in given direction
+	 * 
+	 * uses RealRange.extendUpperEndBy
+	 * 
+	 * @param direction
+	 * @param delta
+	 */
+	public void extendUpperEndBy(Direction direction, double delta) {
+		RealRange realRange = (Direction.HORIZONTAL.equals(direction) ? xrange : yrange);
+		realRange.extendUpperEndBy(delta);
+	}
+	
+	/** extend the end of range lower end in given direction
+	 * 
+	 * uses RealRange.extendLowerEndBy
+	 * 
+	 * @param direction
+	 * @param delta
+	 */
+	public void extendLowerEndBy(Direction direction, double delta) {
+		RealRange realRange = (Direction.HORIZONTAL.equals(direction) ? xrange : yrange);
+		realRange.extendLowerEndBy(delta);
+	}
+	
+	/** extend the end of range lower end in given direction
+	 * 
+	 * changes this
+	 * uses RealRange.extendLowerEndBy
+	 * uses RealRange.extendUpperEndBy
+	 * 
+	 * @param direction
+	 * @param lowerDelta
+	 * @param upperDelta
+	 * @return this modified
+	 */
+	public Real2Range extendBothEndsBy(Direction direction, double lowerDelta, double upperDelta) {
+		RealRange realRange = (Direction.HORIZONTAL.equals(direction) ? xrange : yrange);
+		if (realRange != null) {
+			realRange.extendLowerEndBy(lowerDelta);
+			realRange.extendUpperEndBy(upperDelta);
+		} else {
+			LOG.trace("null range");
+		}
+		return this;
+	}
+
+	/** extend the end of range in all directions
+	 * 
+	 * changes this
+	 * uses RealRange.extendLowerEndBy
+	 * uses RealRange.extendUpperEndBy
+	 * 
+	 * @param delta amount to all to all ends
+	 * @return this modified
+	 */
+	public Real2Range extendAllEndsBy(double delta) {
+		extendBothEndsBy(Direction.HORIZONTAL, delta, delta);
+		extendBothEndsBy(Direction.VERTICAL, delta, delta);
+		return this;
+	}
+
+	/** gets all 4 corners
+	 * start at minXMiny
+	 * do not use "clockwise" etc as depends on axes
+	 * @return minXMiny maxXMiny maxXMaxy minXMaxy corners
+	 */
+	public Real2[] getAllCornerPoints() {
+		Real2[] corners = new Real2[4];
+    	corners[0] = new Real2(xrange.getMin(), yrange.getMin());
+    	corners[1] = new Real2(xrange.getMax(), yrange.getMin());
+    	corners[2] = new Real2(xrange.getMax(), yrange.getMax());
+    	corners[3] = new Real2(xrange.getMin(), yrange.getMax());
+    	return corners;
+		
+	}
+	public Real2 getSquareBoxCentre(BoxDirection boxEdge) {
+		Real2[] corners = getLLURCorners();
+		Line2 edge = null;
+		if (BoxDirection.LEFT.equals(boxEdge)) {
+			edge = new Line2(corners[0], new Real2(corners[0].getX(), corners[1].getY()));
+		} else if (BoxDirection.TOP.equals(boxEdge)) {
+			edge = new Line2(new Real2(corners[0].getX(), corners[1].getY()), corners[1]);
+		} else if (BoxDirection.LEFT.equals(boxEdge)) {
+			edge = new Line2(corners[1], new Real2(corners[1].getX(), corners[0].getY()));
+		} else if (BoxDirection.BOTTOM.equals(boxEdge)) {
+			edge = new Line2(new Real2(corners[1].getX(), corners[0].getY()), corners[0]);
+		}
+	
+		Real2 centre = edge.createSquarePoint();
+		return centre;
+	}
+	
+	/** does this Real2Range touch range1 exactly?
+	 * 
+	 * true if BoxDirection.TOP and range0.getRealRange() == range1.getRealRange()
+	 * and range0.upperLeftCorner == range1.lowerLeftCorner
+	 * 
+	 * similarly for all other cases
+	 * 
+	 * 
+	 * @param range1
+	 * @param horizontal
+	 * @return
+	 * 
+	 * NYI
+	 */
+	public boolean buttsExactlyWith(Real2Range real2Range, BoxDirection direction, double eps) {
+		RealRange thisRange = this.getRealRange(direction);
+		RealRange range1 = real2Range.getRealRange(direction);
+		if (RealRange.isEqual(thisRange, range1, eps)) {
+			BoxDirection oppositeDirection = direction.getOppositeDirection();
+		}
+		return false;
+	}
+	
+	public RealRange getRealRange(BoxDirection direction) {
+		RealRange range = null;
+		if (BoxDirection.TOP == direction || BoxDirection.BOTTOM == direction) {
+			range = getXRange();
+		} else if (BoxDirection.LEFT == direction || BoxDirection.RIGHT == direction) {
+			range = getYRange();
+		}
+		return range;
+	}
+	public boolean isSquare(double eps) {
+		return Math.abs(getXRange().getRange() - getYRange().getRange()) < eps;
+	}
+	public static Real2Range createTotalBox(List<Real2Range> boundingBoxList) {
+		if (boundingBoxList == null || boundingBoxList.size() == 0) return null;
+		Real2Range bbox = new Real2Range(boundingBoxList.get(0));
+		for (int i = 1; i < boundingBoxList.size(); i++) {
+			bbox.plusEquals(boundingBoxList.get(i));
+		}
+		return bbox;
+	}
+	/** adds a bounding box to list of bboxes and merges if it overlaps
+	 * crude - might not unite two isolated bboxes 
+	 * 
+	 * @param boundingBox
+	 * @param bboxList
+	 * @return merged if one or more merges
+	 */
+	public static boolean agglomerateIntersections(Real2Range boundingBox, List<Real2Range> bboxList, double delta) {
+		Real2Range bbox = null;
+		boolean merged = false;
+		for (int i = bboxList.size() - 1; i >= 0; i--) {
+			Real2Range bboxi = bboxList.get(i);
+			if (bboxi.intersects(boundingBox, delta)) {
+				bbox = boundingBox.plus(bboxi);
+				bboxList.set(i, bbox);
+				boundingBox = bbox;
+				merged = true;
+			}
+		}
+		if (!merged) {
+			bboxList.add(boundingBox);
+		}
+		return merged;
+	}
+	
+	/** gets transform from "this" to box.
+	 * 
+	 * returns the transform requited to convert this to box, i.e.
+	 * Transform2 t2 = this.getTransformTo(box)
+	 * allows
+	 * Real2Range newBox = this.transformBy(t2)
+	 * to return newBox.equals(box)
+	 * 
+	 * NOTE all ranges have xmin < xmax so won't "change sign"
+	 * NOT TESTED
+	 * 
+	 * 
+	 * @param box
+	 * @return
+	 */
+	public Transform2 getTransformTo(Real2Range box) {
+		
+		double xConstant = this.xrange.getConstantTo(box.xrange);
+		double xScale    = this.xrange.getScaleTo(box.xrange);
+		double yConstant = this.yrange.getConstantTo(box.yrange);
+		double yScale    = this.yrange.getScaleTo(box.yrange);
+		Transform2 t2 = Transform2.createScaleTransform(xScale, yScale);
+		t2.setTranslation(new Real2(xConstant, yConstant));
+		return t2;
+	}
+	
 }

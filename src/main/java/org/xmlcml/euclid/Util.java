@@ -2528,7 +2528,6 @@ public class Util implements EuclidConstants {
 	
 	public static double parseFlexibleDouble(String value)
 			throws ParseException {
-		//LOG.debug("Parsing "+ value);
 		if (value != null) {
 			// 0, -0, INF, -INF and NaN : Special cases from the XSD spec.
 			if ("INF".equals(value)) {
@@ -3140,12 +3139,35 @@ public class Util implements EuclidConstants {
 		if (PM286.equals(System.getProperty("user.name"))) {
 			check = true;
 		} else {
-			LOG.debug("Skipping PMR-only test");
+			LOG.info("Skipping PMR-only test");
 		}
 		return check;
 	}
 
 
+	/** converts character to Unicode representation.
+	 * 
+	 * @param c
+	 * @return string of form "\\udddd"
+	 */
+	public static String createUnicodeString(char c) {
+		String hex = Integer.toHexString((int) c);
+		return "\\"+"u"+Util.addLeadingZeros(hex, 4);
+	}
+
+	/** pads string with leading zeros.
+	 * 
+	 * @param hex string to pad
+	 * @param length total number of characters in result
+	 * @return string left-padded to length
+	 */
+	public static String addLeadingZeros(String hex, int length) {
+		StringBuilder sb = new StringBuilder(hex);
+		while (sb.length() < length) {
+			sb.insert(0,  '0');
+		}
+		return sb.toString();
+	}
 }
 
 

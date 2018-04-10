@@ -17,6 +17,7 @@
 package org.xmlcml.euclid;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -72,8 +73,16 @@ public class Real2Array implements EuclidConstants ,  Iterable<Real2>  {
      */
     public Real2Array(Real2Array r2a) {
     	if (r2a != null && !r2a.equals(this)) {
-    		xarr = new RealArray(r2a.getXArray());
-    		yarr = new RealArray(r2a.getYArray());
+    		RealArray xx = r2a.getXArray();
+    		if (xx == null) {
+    			throw new RuntimeException("Null xarr");
+    		}
+    		RealArray yy = r2a.getYArray();
+    		if (yy == null) {
+    			throw new RuntimeException("Null yarr");
+    		}
+    		xarr = xx == null ? null : new RealArray(xx);
+    		yarr = yy == null ? null : new RealArray(yy);
     		this.nelem = r2a.nelem;
     	}
     }
@@ -94,6 +103,7 @@ public class Real2Array implements EuclidConstants ,  Iterable<Real2>  {
         yarr = (RealArray) y.clone();
     }
 
+    
     /** create with RealArrays of pre-allocated size.
      * 
      * @param i
@@ -111,6 +121,8 @@ public class Real2Array implements EuclidConstants ,  Iterable<Real2>  {
 			this.add(point);
 		}
 	}
+	
+	
 	/**
      * compares the arrays
      * @param r2b array to compare to
@@ -135,6 +147,21 @@ public class Real2Array implements EuclidConstants ,  Iterable<Real2>  {
      * appends an xy coordinate
      * @param r2
      */
+    public void addElement(Real2 r2) {
+    	if (nelem == 0 || xarr == null || yarr == null) {
+    		xarr = new RealArray();
+    		yarr = new RealArray();
+    	}
+    	xarr.addElement(r2.getX());
+    	yarr.addElement(r2.getY());
+    	nelem++;
+    }
+    
+    /**
+     * appends an xy coordinate
+     * @param r2
+     */
+    @Deprecated // confusable with Plus // use addElement()
     public void add(Real2 r2) {
     	if (nelem == 0 || xarr == null || yarr == null) {
     		xarr = new RealArray();
@@ -305,11 +332,13 @@ public class Real2Array implements EuclidConstants ,  Iterable<Real2>  {
      * @return this
      */
     public Real2Array format(int places) {
-    	double[] xarray = xarr.getArray();
-    	double[] yarray = yarr.getArray();
-    	for (int i = 0; i < nelem; i++) {
-    		xarray[i] = Util.format(xarray[i], places);
-    		yarray[i] = Util.format(yarray[i], places);
+    	if (xarr != null && yarr != null) {
+	    	double[] xarray = xarr.getArray();
+	    	double[] yarray = yarr.getArray();
+	    	for (int i = 0; i < nelem; i++) {
+	    		xarray[i] = Util.format(xarray[i], places);
+	    		yarray[i] = Util.format(yarray[i], places);
+	    	}
     	}
     	return this;
     }
@@ -422,6 +451,11 @@ public class Real2Array implements EuclidConstants ,  Iterable<Real2>  {
 		return new Real2Array(xarr, yarr);
 	}
 	
+	/** creates from output representation.
+	 * 
+	 * @param coords format "((1.1,2.2)(3.3,4.4)(5.5,6.6))"
+	 * @return array or null if fails
+	 */
 	public static Real2Array createFromCoords(String coords) {
 		Real2Array real2Array = null;
 		if (coords != null) {
@@ -437,7 +471,7 @@ public class Real2Array implements EuclidConstants ,  Iterable<Real2>  {
 						dd[0] = Util.parseFlexibleDouble(matcher.group(1));
 						dd[1] = Util.parseFlexibleDouble(matcher.group(2));
 						Real2 coord = new Real2(dd);
-						real2Array.add(coord);
+						real2Array.addElement(coord);
 					} catch (Exception e) {
 						LOG.trace("bad coord "+e);
 						real2Array = null;
@@ -535,6 +569,82 @@ public class Real2Array implements EuclidConstants ,  Iterable<Real2>  {
 		}
 		return points;
 	}
+	
+	public static Real2Array createReal2Array(Real2 ... points) {
+		List<Real2> pointList = points == null ? new ArrayList<Real2>() : Arrays.asList(points);
+		return new Real2Array(pointList);
+	}
+
+	/** multiples (scales) all elemnts of this.
+	 * 
+	 * @param d
+	 * @return
+	 */
+	public void multiplyBy(double d) {
+		xarr = xarr.multiplyBy(d);
+		yarr = yarr.multiplyBy(d);
+	}
+	
+	/** rotates array geometrically about geometric midpoint.
+	 * xymid = (xy0+xyn )/2.
+	 * then xyj = 2*xymid - xyk, where j+k = n
+	 * 
+	 * @return modified array
+	 */
+	public Real2Array getRotatedAboutMidPoint() {
+		Real2Array rotatedXY = new Real2Array(nelem);
+		if (nelem > 0) {
+			int last = nelem - 1;
+			Real2 midxy = this.get(0).getMidPoint(this.get(last));
+			Real2 midxy2 = midxy.plus(midxy);
+			for (int i = 0; i < nelem; i++) {
+				Real2 rotated2 = midxy2.subtract(this.get(i));
+				rotatedXY.setElement(i, rotated2);
+			}
+		}
+		return rotatedXY;
+	}
+	public Real2 getMidpointOfEnds() {
+		return (get(0).plus(get(size() - 1))).multiplyBy(0.5);
+	}
+	public RealArray calculateDeviationsRadiansPerElement() {
+		int size = size();
+		RealArray curvature = new RealArray(size - 2);
+		for (int j = 1; j < size - 1; j++) {
+			int i = (j - 1) ;
+			int k = (j + 1) ;
+			Angle angle = Real2.getAngle(get(i), get(j), get(k));
+			angle.normalizeTo2Pi();
+			double ang = angle.getRadian() - Math.PI;
+			curvature. setElementAt(i, ang);
+		}
+		return curvature;
+	}
+	/** creates 4 roughly equal segments and calculates 3 values of curvature
+	 * "units" are pixels per radian. 
+	 * 
+	 * @return
+	 */
+	public RealArray calculate4SegmentedCurvature() {
+		RealArray curvature = null;
+		// divide into 4
+		int size = size();
+		// has to be large enough to be meaningful
+		if (size > 4) {
+			Real2Array segments = new Real2Array(5);
+			segments.setElement(0, get(0));
+			int mid = size / 2;
+			segments.setElement(2, get(mid));
+			int q1 = mid / 2;
+			segments.setElement(1, get(q1));
+			int q3 = (mid + size) / 2;
+			segments.setElement(3, get(q3));
+			segments.setElement(4, getLastPoint());
+			curvature = segments.calculateDeviationsRadiansPerElement();
+		}
+		return curvature;
+	}
+	
 	
 }
 class Real2Iterator implements Iterator<Real2> {

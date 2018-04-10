@@ -152,7 +152,7 @@ public class RealRangeTest {
 	 * 'org.xmlcml.euclid.RealRange.doubleersectionWith(RealRange)'
 	 */
 	@Test
-	public void testIntsectionWith() {
+	public void testIntersectionWith() {
 		RealRange ix = new RealRange(1.0, 4.0);
 		RealRange iy = new RealRange(2.0, 3.0);
 		RealRange ii = ix.intersectionWith(iy);
@@ -166,6 +166,17 @@ public class RealRangeTest {
 		iy = new RealRange();
 		ii = ix.intersectionWith(iy);
 		Assert.assertNull("ii", ii);
+	}
+	
+	@Test
+	public void testIntersects() {
+		RealRange ix = new RealRange(1.0, 2.01);
+		RealRange iy = new RealRange(2.0, 3.0);
+		Assert.assertTrue("overlap", ix.intersects(iy));
+		ix = new RealRange(1.0, 1.99);
+		Assert.assertFalse("overlap", ix.intersects(iy));
+		Assert.assertTrue("overlap", ix.intersects(iy, 0.006));
+		Assert.assertFalse("overlap", ix.intersects(iy, 0.004));
 	}
 
 	/**
@@ -244,7 +255,6 @@ public class RealRangeTest {
 			Assert.assertTrue("limit: ", d >= 10. && d <= 20.);
 			sum += d;
 		}
-		// LOG.debug(sum);
 		// crude check
 		Assert.assertTrue("distribution", sum > 1400 && sum < 1600);
 	}
